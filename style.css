@@ -1,0 +1,252 @@
+/* General Body and Container Styles */
+body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; /* Modern, clean font */
+    margin: 0; /* Remove default body margin */
+    padding: 20px; /* Add some padding around the content */
+    background-color: #e9ecef; /* Light gray background, common in modern apps */
+    display: flex; /* Use flexbox for centering content */
+    justify-content: center; /* Center horizontally */
+    align-items: flex-start; /* Align to the top vertically */
+    min-height: 100vh; /* Ensure body takes full viewport height */
+    box-sizing: border-box; /* Include padding in element's total width and height */
+}
+
+.container {
+    max-width: 1000px; /* Increased max-width for side-by-side layout */
+    width: 100%; /* Ensure it takes full width up to max */
+    background-color: #ffffff; /* White background for the main container */
+    padding: 25px; /* More generous padding inside */
+    border-radius: 12px; /* Softer rounded corners */
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1); /* More pronounced, softer shadow */
+    display: flex; /* Use flexbox for input and output sections side-by-side */
+    gap: 30px; /* Space between input and output sections */
+    flex-wrap: wrap; /* Allow sections to wrap on smaller screens */
+    margin-top: 20px; /* Space from top */
+}
+
+/* Section Styling (Input/Output) */
+.input-section,
+.output-section {
+    flex: 1; /* Allow sections to grow and shrink */
+    min-width: 300px; /* Minimum width before wrapping */
+    padding: 20px;
+    border: 1px solid #e0e0e0; /* Light border */
+    border-radius: 8px; /* Slightly rounded corners */
+    background-color: #fdfdfd; /* Off-white background */
+}
+
+/* Headings */
+h1 {
+    width: 100%; /* Take full width of the container */
+    text-align: center;
+    color: #343a40; /* Dark gray for headings */
+    margin-bottom: 30px;
+    font-size: 2.2em;
+    font-weight: 700;
+}
+
+h2 {
+    color: #495057;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+    border-bottom: 2px solid #007bff; /* Accent border */
+    padding-bottom: 10px;
+}
+
+/* Form Elements */
+label {
+    display: block; /* Each label on its own line */
+    margin-bottom: 8px;
+    color: #495057;
+    font-weight: 600;
+    font-size: 0.95em;
+}
+
+input[type="text"],
+input[type="number"],
+select, /* Add select to styling */
+textarea {
+    width: calc(100% - 20px); /* Full width minus padding */
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ced4da; /* Light gray border */
+    border-radius: 5px;
+    font-size: 1em;
+    box-sizing: border-box; /* Include padding in width */
+}
+
+input[type="checkbox"] {
+    margin-right: 8px; /* Space between checkbox and label */
+    vertical-align: middle; /* Align checkbox with text */
+    width: auto; /* Allow checkbox to take natural width */
+}
+
+textarea {
+    min-height: 180px; /* Sufficient height for results */
+    resize: vertical; /* Allow vertical resizing */
+    font-family: monospace; /* Monospaced font for code/report */
+    background-color: #f8f9fa; /* Slightly darker background for readonly areas */
+}
+
+/* Buttons */
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px; /* Slightly reduced space between buttons */
+    margin-top: 20px;
+    margin-bottom: 20px;
+    justify-content: center; /* Center buttons within their group */
+    align-items: center; /* Vertically align items in the group */
+}
+
+button {
+    background-color: #007bff; /* Primary blue */
+    color: white;
+    padding: 10px 18px; /* Slightly reduced padding */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.95em; /* Slightly smaller font size */
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    flex-grow: 0; /* Prevent buttons from growing excessively */
+    flex-shrink: 1; /* Allow buttons to shrink */
+    min-width: unset; /* Remove minimum width constraint */
+    width: auto; /* Allow width to be determined by content + padding */
+    white-space: nowrap; /* Prevent text wrapping inside buttons */
+}
+
+button#calculateBtn {
+    flex-grow: 1; /* Allow calculate button to take more space if needed */
+    max-width: 200px; /* Max width for calculate button */
+}
+
+button:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+    transform: translateY(-2px); /* Slight lift effect */
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+/* Notes */
+.note {
+    font-size: 0.85em;
+    color: #6c757d;
+    margin-top: -10px;
+    margin-bottom: 15px;
+}
+
+.canvas-note {
+    font-size: 0.85em;
+    color: #6c757d;
+    margin-top: 10px;
+}
+
+/* Canvas Styling */
+canvas {
+    border: 1px solid #ced4da;
+    background-color: #f0f0f0; /* Light background for canvas */
+    border-radius: 5px;
+    width: 100%; /* Make canvas responsive */
+    height: auto; /* Maintain aspect ratio */
+}
+
+/* Collapsible Section Styles */
+.collapsible-toggle {
+    background-color: #6c757d; /* Darker grey */
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 10px;
+    transition: background-color 0.3s ease;
+}
+
+.collapsible-toggle:hover {
+    background-color: #5a6268;
+}
+
+.collapsible-toggle.active {
+    background-color: #495057;
+}
+
+.collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-out, padding 0.5s ease-out, opacity 0.5s ease-out;
+    opacity: 0;
+    padding: 0 10px; /* Initial padding */
+    border: 1px solid #e0e0e0;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    margin-bottom: 15px;
+    background-color: #f8f9fa;
+}
+
+.collapsible-content.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+
+.collapsible-content h3 {
+    color: #555;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    border-bottom: 1px dashed #ced4da;
+    padding-bottom: 5px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column; /* Stack sections vertically on smaller screens */
+        padding: 15px;
+        gap: 20px;
+    }
+    h1 {
+        font-size: 1.8em;
+    }
+    .input-section,
+    .output-section {
+        min-width: unset; /* Remove min-width constraint */
+        width: 100%; /* Take full width */
+    }
+    .button-group {
+        flex-direction: column; /* Stack buttons vertically on very small screens */
+        align-items: stretch; /* Stretch buttons to full width */
+    }
+    button {
+        width: 100%; /* Full width for stacked buttons */
+        max-width: unset; /* Remove max-width constraint for responsiveness */
+    }
+}
+
+/* Styles for shape selection dropdown */
+.shape-selection {
+    margin-bottom: 20px; /* Space below shape selection */
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+    display: flex;
+    align-items: center; /* Align label and select vertically */
+    gap: 10px; /* Space between label and select */
+}
+
+.shape-selection label {
+    margin-bottom: 0; /* Remove default label margin */
+    font-weight: normal; /* Labels for dropdown are not bold */
+}
+
+.shape-selection select {
+    flex-grow: 1; /* Allow select to take available space */
+    max-width: 200px; /* Limit dropdown width */
+    margin-bottom: 0; /* Remove default input margin */
+}
