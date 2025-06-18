@@ -155,8 +155,7 @@ function splitSideIntoSections(totalLength, spacing, isRectangleCornerSide = fal
                                  pipeLengthConstraint = DEFAULT_PIPE_LENGTH,
                                  insertLength = DEFAULT_INSERT_LENGTH,
                                  drillOffset = DEFAULT_DRILL_OFFSET,
-                                 straightLineStartOffset = DEFAULT_STRAIGHT_LINE_START_OFFSET,
-                                 deductCornerHoleForRectangle = false) {
+                                 straightLineStartOffset = DEFAULT_STRAIGHT_LINE_START_OFFSET) {
     const sections = [];
     let remaining = totalLength;
     const segmentStartOverhead = isRectangleCornerSide ? (drillOffset + insertLength) : straightLineStartOffset;
@@ -164,16 +163,9 @@ function splitSideIntoSections(totalLength, spacing, isRectangleCornerSide = fal
     const totalSegmentOverhead = segmentStartOverhead + segmentEndOverhead;
     const maxUsableSpanPerPipe = Math.max(0, pipeLengthConstraint - totalSegmentOverhead);
     const maxHolesPossiblePerPipe = 1 + Math.floor(maxUsableSpanPerPipe / spacing);
-    let firstSegmentEffectiveHoles, subsequentSegmentEffectiveHoles;
-
-    if (isRectangleCornerSide) {
-        firstSegmentEffectiveHoles = deductCornerHoleForRectangle
-            ? Math.min(MAX_HOLES_PER_SECTION - 1, maxHolesPossiblePerPipe)
-            : Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
-        subsequentSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
-    } else {
-        firstSegmentEffectiveHoles = subsequentSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
-    }
+    
+    const firstSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
+    const subsequentSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
 
     const subsequentSegmentUsableSpan = (subsequentSegmentEffectiveHoles - 1) * spacing;
     const subsequentSegmentLenCalc = subsequentSegmentUsableSpan + totalSegmentOverhead;
@@ -253,11 +245,15 @@ function performCalculation() {
                 drawPvcVisual(selectedShape, 0, 0, [], [], spacing, [], '', '', false);
                 return;
             }
-            widthSections = splitSideIntoSections(width, spacing, true, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal, includeCornerHoles);
-            heightSections = splitSideIntoSections(height, spacing, true, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal, includeCornerHoles);
+            // The `includeCornerHoles` state is now handled by the visual function, not the calculation
+            widthSections = splitSideIntoSections(width, spacing, true, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal);
+            heightSections = splitSideIntoSections(height, spacing, true, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal);
             
             const allSectionsCalc = [...widthSections, ...widthSections, ...heightSections, ...heightSections];
             totalHoles = allSectionsCalc.reduce((sum, s) => sum + s.numberOfHoles, 0);
+            if (!includeCornerHoles) {
+                 totalHoles -= 4; // If corners aren't used, subtract them from the total
+            }
             totalLengthUsed = allSectionsCalc.reduce((sum, s) => sum + s.sectionLength, 0);
             pvcCount = Math.ceil(totalLengthUsed / pipeLength);
             elbowCount = 4;
@@ -274,7 +270,7 @@ function performCalculation() {
             const radius = diameter / 2.0;
             const totalLength = Math.PI * radius;
 
-            sections = splitSideIntoSections(totalLength, spacing, false, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal, false);
+            sections = splitSideIntoSections(totalLength, spacing, false, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal);
             
             totalHoles = sections.reduce((sum, s) => sum + s.numberOfHoles, 0);
             totalLengthUsed = sections.reduce((sum, s) => sum + s.sectionLength, 0);
@@ -290,7 +286,7 @@ function performCalculation() {
                 drawPvcVisual(selectedShape, 0, 0, [], [], spacing, [], '', '', false);
                 return;
             }
-            sections = splitSideIntoSections(totalLength, spacing, false, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal, false);
+            sections = splitSideIntoSections(totalLength, spacing, false, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal);
 
             totalHoles = sections.reduce((sum, s) => sum + s.numberOfHoles, 0);
             totalLengthUsed = sections.reduce((sum, s) => sum + s.sectionLength, 0);
@@ -553,13 +549,27 @@ function drawPvcVisual(shape, width, height, widthSections, heightSections, spac
         
         ctx.fillStyle = textColor;
         
+        const formatHoleText = (section, index) => {
+            let holeCountText;
+            const includeCorners = includeCornerHolesCheckbox.checked;
+
+            if (section.isCornerSection && includeCorners) {
+                holeCountText = `${section.numberOfHoles - 1}h+1c`;
+            } else {
+                let holes = section.numberOfHoles;
+                if(section.isCornerSection && !includeCorners) holes--;
+                holeCountText = `${holes}h`;
+            }
+            return `Sec ${index+1}: ${holeCountText}`;
+        };
+
         // --- Top Side (L-to-R) ---
         let currentX_T = startX;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        widthSections.forEach(section => {
+        widthSections.forEach((section, i) => {
             const scaledLen = section.sectionLength * scale;
-            const holeText = section.isCornerSection ? `(${section.numberOfHoles}h, 1 corner)` : `(${section.numberOfHoles} holes)`;
+            const holeText = formatHoleText(section, i);
             ctx.beginPath();
             ctx.moveTo(currentX_T + elbowRadius, startY);
             ctx.lineTo(currentX_T + scaledLen - elbowRadius, startY);
@@ -573,9 +583,10 @@ function drawPvcVisual(shape, width, height, widthSections, heightSections, spac
 
         // --- Right Side (Top-to-Bottom) ---
         let currentY_R = startY;
-        heightSections.forEach(section => {
+        ctx.textAlign = 'left';
+        heightSections.forEach((section, i) => {
             const scaledLen = section.sectionLength * scale;
-            const holeText = section.isCornerSection ? `(${section.numberOfHoles}h, 1 corner)` : `(${section.numberOfHoles} holes)`;
+            const holeText = formatHoleText(section, i);
             const midPointY = currentY_R + scaledLen / 2;
             ctx.beginPath();
             ctx.moveTo(endX, currentY_R + elbowRadius);
@@ -583,16 +594,9 @@ function drawPvcVisual(shape, width, height, widthSections, heightSections, spac
             ctx.strokeStyle = pipeColor;
             ctx.lineWidth = pipeWidth;
             ctx.stroke();
-            ctx.textAlign = 'left';
             const textX_right = endX + 35;
             ctx.fillText(`${section.sectionLength.toFixed(2)}"`, textX_right, midPointY - (lineHeight/2));
             ctx.fillText(holeText, textX_right, midPointY + (lineHeight/2));
-            ctx.beginPath();
-            ctx.moveTo(textX_right - 5, midPointY);
-            ctx.lineTo(endX + 5, midPointY);
-            ctx.strokeStyle = dimColor;
-            ctx.lineWidth = 1;
-            ctx.stroke();
             currentY_R += scaledLen;
         });
 
@@ -600,9 +604,9 @@ function drawPvcVisual(shape, width, height, widthSections, heightSections, spac
         let currentX_B = endX;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        [...widthSections].reverse().forEach(section => {
+        widthSections.forEach((section, i) => {
             const scaledLen = section.sectionLength * scale;
-            const holeText = section.isCornerSection ? `(${section.numberOfHoles}h, 1 corner)` : `(${section.numberOfHoles} holes)`;
+            const holeText = formatHoleText(section, i);
             ctx.beginPath();
             ctx.moveTo(currentX_B - elbowRadius, endY);
             ctx.lineTo(currentX_B - scaledLen + elbowRadius, endY);
@@ -616,9 +620,10 @@ function drawPvcVisual(shape, width, height, widthSections, heightSections, spac
 
         // --- Left Side (Bottom-to-Top) ---
         let currentY_L = endY;
-        [...heightSections].reverse().forEach(section => {
+        ctx.textAlign = 'right';
+        heightSections.forEach((section, i) => {
             const scaledLen = section.sectionLength * scale;
-            const holeText = section.isCornerSection ? `(${section.numberOfHoles}h, 1 corner)` : `(${section.numberOfHoles} holes)`;
+            const holeText = formatHoleText(section, i);
             const midPointY = currentY_L - scaledLen / 2;
             ctx.beginPath();
             ctx.moveTo(startX, currentY_L - elbowRadius);
@@ -626,16 +631,9 @@ function drawPvcVisual(shape, width, height, widthSections, heightSections, spac
             ctx.strokeStyle = pipeColor;
             ctx.lineWidth = pipeWidth;
             ctx.stroke();
-            ctx.textAlign = 'right';
             const textX_left = startX - 35;
             ctx.fillText(`${section.sectionLength.toFixed(2)}"`, textX_left, midPointY - (lineHeight/2));
             ctx.fillText(holeText, textX_left, midPointY + (lineHeight/2));
-            ctx.beginPath();
-            ctx.moveTo(textX_left + 5, midPointY);
-            ctx.lineTo(startX - 5, midPointY);
-            ctx.strokeStyle = dimColor;
-            ctx.lineWidth = 1;
-            ctx.stroke();
             currentY_L -= scaledLen;
         });
 
