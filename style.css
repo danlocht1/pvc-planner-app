@@ -1,252 +1,336 @@
-/* General Body and Container Styles */
+/* --- CSS Variables for Theming --- */
+:root {
+    --font-sans: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'Courier New', Courier, monospace;
+
+    /* Light Theme */
+    --bg-color: #f4f7f9;
+    --primary-text-color: #1a1a1a;
+    --secondary-text-color: #555;
+    --card-bg-color: #ffffff;
+    --border-color: #dce4e9;
+    --input-bg-color: #ffffff;
+    --input-border-color: #ced4da;
+    --accent-color: #007bff;
+    --accent-color-hover: #0056b3;
+    --secondary-btn-bg: #6c757d;
+    --secondary-btn-hover: #5a6268;
+    --shadow-color: rgba(0, 0, 0, 0.08);
+    --canvas-bg-color: #e9ecef;
+}
+
+body[data-theme='dark'] {
+    --bg-color: #1a1a1a;
+    --primary-text-color: #e1e1e1;
+    --secondary-text-color: #a0a0a0;
+    --card-bg-color: #2b2b2b;
+    --border-color: #444;
+    --input-bg-color: #333;
+    --input-border-color: #555;
+    --accent-color: #0095ff;
+    --accent-color-hover: #006fbf;
+    --secondary-btn-bg: #5a6268;
+    --secondary-btn-hover: #484e53;
+    --shadow-color: rgba(0, 0, 0, 0.2);
+    --canvas-bg-color: #333;
+}
+
+/* --- General & Layout Styles --- */
 body {
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; /* Modern, clean font */
-    margin: 0; /* Remove default body margin */
-    padding: 20px; /* Add some padding around the content */
-    background-color: #e9ecef; /* Light gray background, common in modern apps */
-    display: flex; /* Use flexbox for centering content */
-    justify-content: center; /* Center horizontally */
-    align-items: flex-start; /* Align to the top vertically */
-    min-height: 100vh; /* Ensure body takes full viewport height */
-    box-sizing: border-box; /* Include padding in element's total width and height */
+    font-family: var(--font-sans);
+    margin: 0;
+    padding: 2rem;
+    background-color: var(--bg-color);
+    color: var(--primary-text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    display: flex;
+    justify-content: center;
 }
 
 .container {
-    max-width: 1000px; /* Increased max-width for side-by-side layout */
-    width: 100%; /* Ensure it takes full width up to max */
-    background-color: #ffffff; /* White background for the main container */
-    padding: 25px; /* More generous padding inside */
-    border-radius: 12px; /* Softer rounded corners */
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1); /* More pronounced, softer shadow */
-    display: flex; /* Use flexbox for input and output sections side-by-side */
-    gap: 30px; /* Space between input and output sections */
-    flex-wrap: wrap; /* Allow sections to wrap on smaller screens */
-    margin-top: 20px; /* Space from top */
+    width: 100%;
+    max-width: 1200px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 2rem;
 }
 
-/* Section Styling (Input/Output) */
+.main-header {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
 .input-section,
 .output-section {
-    flex: 1; /* Allow sections to grow and shrink */
-    min-width: 300px; /* Minimum width before wrapping */
-    padding: 20px;
-    border: 1px solid #e0e0e0; /* Light border */
-    border-radius: 8px; /* Slightly rounded corners */
-    background-color: #fdfdfd; /* Off-white background */
+    background-color: var(--card-bg-color);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow-color);
+    transition: background-color 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
 }
 
-/* Headings */
 h1 {
-    width: 100%; /* Take full width of the container */
-    text-align: center;
-    color: #343a40; /* Dark gray for headings */
-    margin-bottom: 30px;
-    font-size: 2.2em;
+    font-size: 2em;
     font-weight: 700;
+    margin: 0;
 }
 
 h2 {
-    color: #495057;
-    margin-top: 0;
-    margin-bottom: 20px;
-    font-size: 1.5em;
-    border-bottom: 2px solid #007bff; /* Accent border */
-    padding-bottom: 10px;
+    font-size: 1.4em;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--accent-color);
 }
 
-/* Form Elements */
+/* --- Form & Input Styles --- */
+.input-group {
+    border: 1px solid var(--border-color);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
 label {
-    display: block; /* Each label on its own line */
-    margin-bottom: 8px;
-    color: #495057;
+    display: block;
+    margin-bottom: 0.5rem;
     font-weight: 600;
-    font-size: 0.95em;
+    font-size: 0.9em;
 }
 
 input[type="text"],
 input[type="number"],
-select, /* Add select to styling */
+select,
 textarea {
-    width: calc(100% - 20px); /* Full width minus padding */
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #ced4da; /* Light gray border */
-    border-radius: 5px;
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--input-border-color);
+    border-radius: 6px;
     font-size: 1em;
-    box-sizing: border-box; /* Include padding in width */
+    background-color: var(--input-bg-color);
+    color: var(--primary-text-color);
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 25%, transparent);
 }
 
 input[type="checkbox"] {
-    margin-right: 8px; /* Space between checkbox and label */
-    vertical-align: middle; /* Align checkbox with text */
-    width: auto; /* Allow checkbox to take natural width */
+    width: auto;
+    margin-right: 0.5rem;
 }
 
 textarea {
-    min-height: 180px; /* Sufficient height for results */
-    resize: vertical; /* Allow vertical resizing */
-    font-family: monospace; /* Monospaced font for code/report */
-    background-color: #f8f9fa; /* Slightly darker background for readonly areas */
+    min-height: 200px;
+    resize: vertical;
+    font-family: var(--font-mono);
 }
 
-/* Buttons */
-.button-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px; /* Slightly reduced space between buttons */
-    margin-top: 20px;
-    margin-bottom: 20px;
-    justify-content: center; /* Center buttons within their group */
-    align-items: center; /* Vertically align items in the group */
-}
-
-button {
-    background-color: #007bff; /* Primary blue */
-    color: white;
-    padding: 10px 18px; /* Slightly reduced padding */
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.95em; /* Slightly smaller font size */
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    flex-grow: 0; /* Prevent buttons from growing excessively */
-    flex-shrink: 1; /* Allow buttons to shrink */
-    min-width: unset; /* Remove minimum width constraint */
-    width: auto; /* Allow width to be determined by content + padding */
-    white-space: nowrap; /* Prevent text wrapping inside buttons */
-}
-
-button#calculateBtn {
-    flex-grow: 1; /* Allow calculate button to take more space if needed */
-    max-width: 200px; /* Max width for calculate button */
-}
-
-button:hover {
-    background-color: #0056b3; /* Darker blue on hover */
-    transform: translateY(-2px); /* Slight lift effect */
-}
-
-button:active {
-    transform: translateY(0);
-}
-
-/* Notes */
 .note {
     font-size: 0.85em;
-    color: #6c757d;
-    margin-top: -10px;
-    margin-bottom: 15px;
+    color: var(--secondary-text-color);
+    margin: -0.5rem 0 0.5rem 0;
 }
 
-.canvas-note {
-    font-size: 0.85em;
-    color: #6c757d;
-    margin-top: 10px;
-}
-
-/* Canvas Styling */
-canvas {
-    border: 1px solid #ced4da;
-    background-color: #f0f0f0; /* Light background for canvas */
-    border-radius: 5px;
-    width: 100%; /* Make canvas responsive */
-    height: auto; /* Maintain aspect ratio */
-}
-
-/* Collapsible Section Styles */
+/* --- Collapsible Section Styles --- */
 .collapsible-toggle {
-    background-color: #6c757d; /* Darker grey */
-    color: white;
-    padding: 10px 15px;
-    border: none;
-    border-radius: 5px;
     cursor: pointer;
-    width: 100%;
-    text-align: left;
-    margin-bottom: 10px;
-    transition: background-color 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    margin-bottom: 0;
+    transition: margin-bottom 0.3s ease-out;
 }
-
-.collapsible-toggle:hover {
-    background-color: #5a6268;
+.collapsible-toggle .toggle-icon {
+    font-size: 1.5em;
+    font-weight: bold;
+    transition: transform 0.3s ease-out;
 }
-
-.collapsible-toggle.active {
-    background-color: #495057;
+.collapsible-toggle.active .toggle-icon {
+    transform: rotate(45deg);
+}
+.collapsible-toggle.active + .collapsible-content {
+    margin-top: 1rem;
 }
 
 .collapsible-content {
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.5s ease-out, padding 0.5s ease-out, opacity 0.5s ease-out;
-    opacity: 0;
-    padding: 0 10px; /* Initial padding */
-    border: 1px solid #e0e0e0;
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    margin-bottom: 15px;
-    background-color: #f8f9fa;
+    transition: max-height 0.35s ease-out, margin-top 0.35s ease-out;
 }
 
-.collapsible-content.collapsed {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    opacity: 0;
-}
-
-.collapsible-content h3 {
-    color: #555;
-    margin-top: 15px;
-    margin-bottom: 10px;
-    border-bottom: 1px dashed #ced4da;
-    padding-bottom: 5px;
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    .container {
-        flex-direction: column; /* Stack sections vertically on smaller screens */
-        padding: 15px;
-        gap: 20px;
-    }
-    h1 {
-        font-size: 1.8em;
-    }
-    .input-section,
-    .output-section {
-        min-width: unset; /* Remove min-width constraint */
-        width: 100%; /* Take full width */
-    }
-    .button-group {
-        flex-direction: column; /* Stack buttons vertically on very small screens */
-        align-items: stretch; /* Stretch buttons to full width */
-    }
-    button {
-        width: 100%; /* Full width for stacked buttons */
-        max-width: unset; /* Remove max-width constraint for responsiveness */
-    }
-}
-
-/* Styles for shape selection dropdown */
-.shape-selection {
-    margin-bottom: 20px; /* Space below shape selection */
-    padding: 10px;
-    background-color: #e9ecef;
-    border-radius: 5px;
-    border: 1px solid #dee2e6;
+/* --- Button Styles --- */
+.button-group {
     display: flex;
-    align-items: center; /* Align label and select vertically */
-    gap: 10px; /* Space between label and select */
+    gap: 0.75rem;
 }
 
-.shape-selection label {
-    margin-bottom: 0; /* Remove default label margin */
-    font-weight: normal; /* Labels for dropdown are not bold */
+button {
+    background-color: var(--accent-color);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 600;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    flex-grow: 1;
 }
 
-.shape-selection select {
-    flex-grow: 1; /* Allow select to take available space */
-    max-width: 200px; /* Limit dropdown width */
-    margin-bottom: 0; /* Remove default input margin */
+button:hover {
+    background-color: var(--accent-color-hover);
+    transform: translateY(-2px);
+}
+
+button.secondary {
+    background-color: var(--secondary-btn-bg);
+}
+button.secondary:hover {
+    background-color: var(--secondary-btn-hover);
+}
+
+.main-actions {
+    margin-top: auto;
+}
+
+/* --- Shape & Height Specific --- */
+.shape-selection {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background-color: color-mix(in srgb, var(--bg-color) 50%, var(--card-bg-color));
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+#heightInputGroup { display: none; }
+#heightInputGroup[data-visible="true"] { display: block; }
+
+
+/* --- Canvas & Output --- */
+canvas {
+    border: 1px solid var(--border-color);
+    background-color: var(--canvas-bg-color);
+    border-radius: 5px;
+    width: 100%;
+    height: auto;
+}
+
+.canvas-note { margin-top: 0.5rem; text-align: center; }
+
+/* --- Dark Mode Toggle Switch --- */
+.theme-switcher {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.theme-switcher label {
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+    margin-bottom: 0;
+}
+#themeToggle {
+    appearance: none;
+    width: 40px;
+    height: 22px;
+    background-color: var(--secondary-btn-bg);
+    border-radius: 11px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+#themeToggle::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: white;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.3s ease;
+}
+#themeToggle:checked {
+    background-color: var(--accent-color);
+}
+#themeToggle:checked::before {
+    transform: translateX(18px);
+}
+
+/* --- HTML report Styles --- */
+#resultsOutput {
+    background-color: color-mix(in srgb, var(--bg-color) 50%, var(--card-bg-color));
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    min-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+#resultsOutput h3 {
+    margin: 0;
+    font-size: 1.2em;
+    border-bottom: none;
+}
+/* MODIFICATION: Style for the H3 inside a collapsible toggle */
+#resultsOutput .collapsible-toggle h3 {
+    padding: 0;
+    border-bottom: none;
+}
+#resultsOutput table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+#resultsOutput th, #resultsOutput td {
+    padding: 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9em;
+}
+#resultsOutput th {
+    font-weight: 600;
+}
+#resultsOutput tr:last-child td {
+    border-bottom: none;
+}
+#resultsOutput .total-row td {
+    font-weight: bold;
+    border-top: 2px solid var(--primary-text-color);
+}
+
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 900px) {
+    .container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        gap: 1.5rem;
+        padding: 1rem;
+    }
+    h1 { font-size: 1.5em; }
+    .main-header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+}
+
+@media (max-width: 480px) {
 }

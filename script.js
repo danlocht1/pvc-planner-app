@@ -8,84 +8,117 @@ const calculateBtn = document.getElementById('calculateBtn');
 const resultsOutput = document.getElementById('resultsOutput');
 const canvas = document.getElementById('pvcCanvas');
 const ctx = canvas.getContext('2d');
-
-// Shape dropdown (updated from radio buttons)
 const shapeSelect = document.getElementById('shapeSelect');
-
-// Advanced Options DOM elements
 const insertLengthInput = document.getElementById('insertLength');
 const drillOffsetInput = document.getElementById('drillOffset');
 const straightLineStartOffsetInput = document.getElementById('straightLineStartOffset');
 const maxHolesPerSectionInput = document.getElementById('maxHolesPerSection');
-
-// Pricing DOM elements
 const basePriceInput = document.getElementById('basePrice');
 const bulkPriceInput = document.getElementById('bulkPrice');
 const bulkThresholdInput = document.getElementById('bulkThreshold');
 const couplingCostInput = document.getElementById('couplingCost');
 const elbowCostInput = document.getElementById('elbowCost');
 const salesTaxRateInput = document.getElementById('salesTaxRate');
-
-// New Export/Reset Buttons
 const saveReportBtn = document.getElementById('saveReportBtn');
 const exportLabelsBtn = document.getElementById('exportLabelsBtn');
 const exportVisualBtn = document.getElementById('exportVisualBtn');
 const resetBtn = document.getElementById('resetBtn');
-
-// Hidden elements for height input in straight line mode (now correctly selected by ID)
-const heightInputGroup = document.getElementById('heightInputGroup'); 
-const heightLabel = document.querySelector('label[for="height"]');
-const heightNote = heightInput.nextElementSibling;
+const heightInputGroup = document.getElementById('heightInputGroup');
+const themeToggle = document.getElementById('themeToggle');
+const holeSizeInput = document.getElementById('holeSize');
+const wiringOptionsGroup = document.getElementById('wiringOptionsGroup');
+const wiringStartPointInput = document.getElementById('wiringStartPoint');
+const wiringDirectionGroup = document.getElementById('wiringDirectionGroup');
+const wiringDirectionInput = document.getElementById('wiringDirection');
+const showWiringCheckbox = document.getElementById('showWiring');
 
 
 // --- Constants / Default Values ---
-const DEFAULT_PIPE_LENGTH = 120.0; // inches (10 feet)
+const DEFAULT_PIPE_LENGTH = 120.0;
 const DEFAULT_SPACING = 2.0;
 const DEFAULT_INSERT_LENGTH = 1.5;
 const DEFAULT_DRILL_OFFSET = 0.25;
 const DEFAULT_STRAIGHT_LINE_START_OFFSET = 0.5;
-const MAX_HOLES_PER_SECTION = 50; // Max 50 holes per section due to visual/labeling constraints
-
+const MAX_HOLES_PER_SECTION = 50;
 const DEFAULT_BASE_PRICE = 4.38;
 const DEFAULT_BULK_PRICE = 3.50;
 const DEFAULT_BULK_THRESHOLD = 8;
 const DEFAULT_COUPLING_COST = 0.78;
 const DEFAULT_ELBOW_COST = 0.58;
-const DEFAULT_SALES_TAX_RATE = 6.5; // Input as percentage (e.g., 6.5 for 6.5%)
+const DEFAULT_SALES_TAX_RATE = 6.5;
+const DEFAULT_HOLE_SIZE = '1/2"';
 
-
-// --- Global Data for Export (to capture labels, etc.) ---
+// --- Global Data for Export ---
 let allLabelsData = [];
+let plainTextReport = '';
+
+
+// --- Theme Switcher Logic ---
+function setTheme(theme) {
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    themeToggle.checked = theme === 'dark';
+    performCalculation();
+}
+
+function toggleTheme() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+}
+
+// --- Collapsible Sections Logic ---
+function setupCollapsibles() {
+    const toggles = document.querySelectorAll('.collapsible-toggle');
+    toggles.forEach(toggle => {
+        if (toggle.dataset.listenerAttached) return;
+
+        toggle.addEventListener('click', () => {
+            toggle.classList.toggle('active');
+            const icon = toggle.querySelector('.toggle-icon');
+            const content = toggle.nextElementSibling;
+
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+                if (icon) icon.textContent = '+';
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+                if (icon) icon.textContent = '–';
+            }
+        });
+        toggle.dataset.listenerAttached = 'true';
+    });
+}
+
+
+// Apply saved theme and setup UI on load
+document.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+    
+    setupCollapsibles();
+    updateHeightInputState();
+    performCalculation();
+});
 
 
 // --- Utility Functions ---
-
 function parseFeetInches(s) {
     try {
         if (!s) return null;
         s = s.trim().replace(/"/g, '');
         const parts = s.split("'");
-
         let feet = 0;
         let inches = 0.0;
-
         if (parts.length === 2) {
-            if (parts[0]) {
-                feet = parseInt(parts[0]);
-            }
-            if (parts[1]) {
-                inches = parseFloat(parts[1]);
-            }
+            if (parts[0]) feet = parseInt(parts[0]);
+            if (parts[1]) inches = parseFloat(parts[1]);
         } else if (parts.length === 1) {
             inches = parseFloat(parts[0]);
         } else {
             return null;
         }
-
-        if (isNaN(feet) || isNaN(inches)) {
-            return null;
-        }
-
+        if (isNaN(feet) || isNaN(inches)) return null;
         return feet * 12 + inches;
     } catch (e) {
         console.error(`Error parsing feet/inches: ${e}`);
@@ -93,7 +126,6 @@ function parseFeetInches(s) {
     }
 }
 
-// Function to reset all input fields to their default values
 function resetAllInputs() {
     widthInput.value = "30'";
     heightInput.value = "";
@@ -110,14 +142,15 @@ function resetAllInputs() {
     couplingCostInput.value = DEFAULT_COUPLING_COST;
     elbowCostInput.value = DEFAULT_ELBOW_COST;
     salesTaxRateInput.value = DEFAULT_SALES_TAX_RATE;
-    shapeSelect.value = "straight"; // Reset shape to straight line
-
-    updateHeightInputState(); // Adjust height input visibility
-    performCalculation(); // Re-calculate with reset values
+    shapeSelect.value = "straight";
+    holeSizeInput.value = DEFAULT_HOLE_SIZE;
+    wiringDirectionInput.value = 'clockwise';
+    showWiringCheckbox.checked = true;
+    updateHeightInputState(); // This will set wiringStartPoint and recalculate
 }
 
 
-// Core logic for splitting a side into sections based on pipe length and hole spacing
+// --- Core Calculation Logic ---
 function splitSideIntoSections(totalLength, spacing, isRectangleCornerSide = false,
                                  pipeLengthConstraint = DEFAULT_PIPE_LENGTH,
                                  insertLength = DEFAULT_INSERT_LENGTH,
@@ -126,563 +159,626 @@ function splitSideIntoSections(totalLength, spacing, isRectangleCornerSide = fal
                                  deductCornerHoleForRectangle = false) {
     const sections = [];
     let remaining = totalLength;
-
-    // Define overheads
-    // For rectangles, segmentStartOverhead and segmentEndOverhead are based on drillOffset + insertLength
-    // For straight lines, startOffset is different (straightLineStartOffset)
     const segmentStartOverhead = isRectangleCornerSide ? (drillOffset + insertLength) : straightLineStartOffset;
-    const segmentEndOverhead = drillOffset + insertLength; // End always includes drillOffset + insertLength for connector
-
+    const segmentEndOverhead = drillOffset + insertLength;
     const totalSegmentOverhead = segmentStartOverhead + segmentEndOverhead;
-
-    // Determine the absolute maximum number of holes that can physically fit into one 'pipeLengthConstraint' pipe
     const maxUsableSpanPerPipe = Math.max(0, pipeLengthConstraint - totalSegmentOverhead);
     const maxHolesPossiblePerPipe = 1 + Math.floor(maxUsableSpanPerPipe / spacing);
-
     let firstSegmentEffectiveHoles, subsequentSegmentEffectiveHoles;
 
-    // Determine effective holes for first segment (corner handling) and subsequent segments
     if (isRectangleCornerSide) {
-        if (deductCornerHoleForRectangle) {
-            // For rectangle corners, if holes are included on corners, the corner hole is conceptually shared.
-            // So, for calculations specific to *this* side's holes, one less hole is drilled on the first segment.
-            firstSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION - 1, maxHolesPossiblePerPipe);
-        } else {
-            // If corner holes are NOT included, the first segment gets full number of holes
-            firstSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
-        }
+        firstSegmentEffectiveHoles = deductCornerHoleForRectangle
+            ? Math.min(MAX_HOLES_PER_SECTION - 1, maxHolesPossiblePerPipe)
+            : Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
         subsequentSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
-    } else { // Straight Line or non-corner side of other shapes
-        firstSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
-        subsequentSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
+    } else {
+        firstSegmentEffectiveHoles = subsequentSegmentEffectiveHoles = Math.min(MAX_HOLES_PER_SECTION, maxHolesPossiblePerPipe);
     }
 
-    // Calculate section length for a "full" subsequent segment
     const subsequentSegmentUsableSpan = (subsequentSegmentEffectiveHoles - 1) * spacing;
     const subsequentSegmentLenCalc = subsequentSegmentUsableSpan + totalSegmentOverhead;
     const subsequentSegmentLen = Math.min(subsequentSegmentLenCalc, pipeLengthConstraint);
-
-    // Calculate length for the first segment (which acts as a 'corner' or initial segment)
     const firstSegmentUsableSpan = (firstSegmentEffectiveHoles - 1) * spacing;
     const firstSegmentLenCalc = firstSegmentUsableSpan + totalSegmentOverhead;
     const firstSegmentLen = Math.min(firstSegmentLenCalc, pipeLengthConstraint);
     
-    if (totalLength <= 0) {
-        return sections;
-    }
+    if (totalLength <= 0) return sections;
 
-    // Handle the first segment (corner or initial straight piece)
     if (totalLength <= firstSegmentLen) {
-        // If the total length is less than or equal to what fits in a single 'first' segment
         const usableForHolesInLastSegment = Math.max(0, totalLength - totalSegmentOverhead);
         let holes = 1 + Math.floor(usableForHolesInLastSegment / spacing);
-        
-        // Ensure holes don't exceed max allowed and are at least 0
-        holes = Math.min(holes, firstSegmentEffectiveHoles);
-        holes = Math.max(0, holes);
-
+        holes = Math.max(0, Math.min(holes, firstSegmentEffectiveHoles));
         if (holes > 0) {
-            const drilled = (holes - 1) * spacing;
-            let sectionLenActual = drilled + totalSegmentOverhead;
-            sectionLenActual = Math.min(sectionLenActual, totalLength); // Do not exceed totalLength
-            sectionLenActual = Math.min(sectionLenActual, pipeLengthConstraint); // Do not exceed pipe constraint
-            if (sectionLenActual > 0) {
-                sections.push({ sectionLength: sectionLenActual, numberOfHoles: holes, isCornerSection: isRectangleCornerSide });
-            }
+            let sectionLenActual = Math.min(totalLength, pipeLengthConstraint, (holes - 1) * spacing + totalSegmentOverhead);
+            if (sectionLenActual > 0) sections.push({ sectionLength: sectionLenActual, numberOfHoles: holes, isCornerSection: isRectangleCornerSide });
         }
-        remaining = 0; // All length consumed
+        remaining = 0;
     } else {
         sections.push({ sectionLength: firstSegmentLen, numberOfHoles: firstSegmentEffectiveHoles, isCornerSection: isRectangleCornerSide });
         remaining -= firstSegmentLen;
     }
 
-    // Add subsequent full sections
     while (remaining >= subsequentSegmentLen && subsequentSegmentLen > 0) {
         sections.push({ sectionLength: subsequentSegmentLen, numberOfHoles: subsequentSegmentEffectiveHoles, isCornerSection: false });
         remaining -= subsequentSegmentLen;
     }
 
-    // Add the last, partial section if any remaining length
-    if (remaining > 0.001) { // Use a small epsilon for floating point comparison
+    if (remaining > 0.001) {
         const usableForHolesInLastSegment = Math.max(0, remaining - totalSegmentOverhead);
         let holes = 1 + Math.floor(usableForHolesInLastSegment / spacing);
-        
-        // Ensure holes don't exceed max allowed for subsequent segments and are at least 0
-        holes = Math.min(holes, subsequentSegmentEffectiveHoles);
-        holes = Math.max(0, holes);
-
+        holes = Math.max(0, Math.min(holes, subsequentSegmentEffectiveHoles));
         if (holes > 0) {
-            const drilled = (holes - 1) * spacing;
-            let sectionLen = drilled + totalSegmentOverhead;
-            sectionLen = Math.min(sectionLen, remaining); // Do not exceed remaining length
-            sectionLen = Math.min(sectionLen, pipeLengthConstraint); // Do not exceed pipe constraint
-            if (sectionLen > 0) {
-                sections.push({ sectionLength: sectionLen, numberOfHoles: holes, isCornerSection: false });
-            }
+            let sectionLen = Math.min(remaining, pipeLengthConstraint, (holes - 1) * spacing + totalSegmentOverhead);
+            if (sectionLen > 0) sections.push({ sectionLength: sectionLen, numberOfHoles: holes, isCornerSection: false });
         }
     }
 
     return sections;
 }
 
-
-// --- Main Calculation Function ---
 function performCalculation() {
     try {
         const selectedShape = shapeSelect.value;
-        console.log("--- Starting Calculation ---");
-        console.log("Shape selected:", selectedShape);
-        console.log("Width input value (raw):", widthInput.value);
-        console.log("Height input value (raw):", heightInput.value);
-
-        const spacing = parseFloat(spacingInput.value);
-        const pipeLength = parseFloat(pipeLengthInput.value);
+        const spacing = parseFloat(spacingInput.value) || DEFAULT_SPACING;
+        const pipeLength = parseFloat(pipeLengthInput.value) || DEFAULT_PIPE_LENGTH;
         const includeCornerHoles = includeCornerHolesCheckbox.checked;
-
         const insertLengthVal = parseFloat(insertLengthInput.value);
         const drillOffsetVal = parseFloat(drillOffsetInput.value);
         const straightLineStartOffsetVal = parseFloat(straightLineStartOffsetInput.value);
-        const maxHolesPerSectionVal = parseInt(maxHolesPerSectionInput.value); // Currently unused in calculation directly as MAX_HOLES_PER_SECTION is constant, but captured for completeness
-
         const basePriceVal = parseFloat(basePriceInput.value);
         const bulkPriceVal = parseFloat(bulkPriceInput.value);
         const bulkThresholdVal = parseFloat(bulkThresholdInput.value);
         const couplingCostVal = parseFloat(couplingCostInput.value);
         const elbowCostVal = parseFloat(elbowCostInput.value);
-        const salesTaxRateVal = parseFloat(salesTaxRateInput.value) / 100.0;
+        const salesTaxRateVal = (parseFloat(salesTaxRateInput.value) || 0) / 100.0;
+        const holeSize = holeSizeInput.value || DEFAULT_HOLE_SIZE;
+        const startPoint = wiringStartPointInput.value;
+        const wiringDirection = wiringDirectionInput.value;
+        const showWiring = showWiringCheckbox.checked;
 
-        if (spacing <= 0) {
-            resultsOutput.value = "Error: Hole Spacing must be a positive number.";
+        if (spacing <= 0 || pipeLength <= 0) {
+            resultsOutput.innerHTML = `<p>Error: Spacing and Pipe Length must be positive numbers.</p>`;
             return;
         }
-        if (pipeLength <= 0) {
-            resultsOutput.value = "Error: Pipe Length must be a positive number.";
-            return;
-        }
 
-        let totalHoles = 0;
-        let totalLengthUsed = 0;
-        let pvcCount = 0;
-        let elbowCount = 0;
-        let couplingCount = 0;
-        let widthSections = [];
-        let heightSections = [];
-        let sections = []; // Declare sections here for broader scope
-
-        allLabelsData = []; // Reset labels data for export
+        let totalHoles = 0, totalLengthUsed = 0, pvcCount = 0, elbowCount = 0, couplingCount = 0;
+        let widthSections = [], heightSections = [], sections = [];
+        allLabelsData = [];
 
         if (selectedShape === "rectangle") {
             const width = parseFeetInches(widthInput.value);
             const height = parseFeetInches(heightInput.value);
-
-            console.log("Parsed width (inches):", width);
-            console.log("Parsed height (inches):", height);
-
-            if (width === null || height === null) {
-                resultsOutput.value = "Error: Invalid dimensions. Use format like 12' 3\" or 32' 6\".";
-                console.error("Invalid dimensions detected.");
+            if (width === null || height === null || width <= 0 || height <= 0) {
+                resultsOutput.innerHTML = `<p>Enter valid dimensions for the rectangle.</p>`;
+                drawPvcVisual(selectedShape, 0, 0, [], [], spacing, [], '', '', false);
                 return;
             }
-
-            widthSections = splitSideIntoSections(width, spacing, true,
-                                                    pipeLength, insertLengthVal,
-                                                    drillOffsetVal, straightLineStartOffsetVal,
-                                                    includeCornerHoles);
-            heightSections = splitSideIntoSections(height, spacing, true,
-                                                     pipeLength, insertLengthVal,
-                                                     drillOffsetVal, straightLineStartOffsetVal,
-                                                     includeCornerHoles);
+            widthSections = splitSideIntoSections(width, spacing, true, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal, includeCornerHoles);
+            heightSections = splitSideIntoSections(height, spacing, true, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal, includeCornerHoles);
             
-            console.log("Width sections after split:", widthSections);
-            console.log("Height sections after split:", heightSections);
-
-            // Generate labels for width sides (Top and Bottom)
-            widthSections.forEach((section, index) => {
-                allLabelsData.push({ side: 'Top', section: index + 1, length: section.sectionLength, holes: section.numberOfHoles, isCorner: section.isCornerSection });
-            });
-            widthSections.forEach((section, index) => {
-                allLabelsData.push({ side: 'Bottom', section: index + 1, length: section.sectionLength, holes: section.numberOfHoles, isCorner: section.isCornerSection });
-            });
-
-            // Generate labels for height sides (Left and Right)
-            heightSections.forEach((section, index) => {
-                allLabelsData.push({ side: 'Left', section: index + 1, length: section.sectionLength, holes: section.numberOfHoles, isCorner: section.isCornerSection });
-            });
-            heightSections.forEach((section, index) => {
-                allLabelsData.push({ side: 'Right', section: index + 1, length: section.sectionLength, holes: section.numberOfHoles, isCorner: section.isCornerSection });
-            });
-
-            totalHoles = (
-                widthSections.reduce((sum, s) => sum + s.numberOfHoles, 0) * 2 +
-                heightSections.reduce((sum, s) => sum + s.numberOfHoles, 0) * 2
-            );
             const allSectionsCalc = [...widthSections, ...widthSections, ...heightSections, ...heightSections];
+            totalHoles = allSectionsCalc.reduce((sum, s) => sum + s.numberOfHoles, 0);
             totalLengthUsed = allSectionsCalc.reduce((sum, s) => sum + s.sectionLength, 0);
             pvcCount = Math.ceil(totalLengthUsed / pipeLength);
-            elbowCount = 4; // Always 4 elbows for a rectangle
-            couplingCount = Math.max(0, allSectionsCalc.length - 4); // Total sections - 4 corners (covered by elbows)
-            
-        } else if (selectedShape === "straight") {
-            const totalLength = parseFeetInches(widthInput.value);
-            console.log("Parsed straight line total length (inches):", totalLength);
+            elbowCount = 4;
+            couplingCount = Math.max(0, allSectionsCalc.length - 4);
+            drawPvcVisual(selectedShape, width, height, widthSections, heightSections, spacing, [], startPoint, wiringDirection, showWiring);
 
-            if (totalLength === null) {
-                resultsOutput.value = "Error: Invalid length. Use format like 10', 5\", or 3' 6\".";
-                console.error("Invalid straight line length detected.");
+        } else if (selectedShape === "arch") {
+            const diameter = parseFeetInches(widthInput.value);
+            if (diameter === null || diameter <= 0) {
+                resultsOutput.innerHTML = `<p>Enter a valid diameter for the arch.</p>`;
+                drawPvcVisual(selectedShape, 0, 0, [], [], spacing, [], '', '', false);
                 return;
             }
+            const radius = diameter / 2.0;
+            const totalLength = Math.PI * radius;
 
-            sections = splitSideIntoSections(totalLength, spacing, false, // Assign to the already declared 'sections'
-                                                     pipeLength, insertLengthVal,
-                                                     drillOffsetVal, straightLineStartOffsetVal,
-                                                     includeCornerHoles);
+            sections = splitSideIntoSections(totalLength, spacing, false, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal, false);
             
-            console.log("Straight Line sections after split:", sections);
-
-            // Generate labels for straight line
-            sections.forEach((section, index) => {
-                allLabelsData.push({ side: 'Straight', section: index + 1, length: section.sectionLength, holes: section.numberOfHoles, isCorner: false });
-            });
+            totalHoles = sections.reduce((sum, s) => sum + s.numberOfHoles, 0);
+            totalLengthUsed = sections.reduce((sum, s) => sum + s.sectionLength, 0);
+            pvcCount = Math.ceil(totalLengthUsed / pipeLength);
+            elbowCount = 0;
+            couplingCount = Math.max(0, sections.length - 1);
+            drawPvcVisual(selectedShape, diameter, 0, [], [], spacing, sections, startPoint, '', showWiring);
+        
+        } else { // straight
+            const totalLength = parseFeetInches(widthInput.value);
+            if (totalLength === null || totalLength <= 0) {
+                resultsOutput.innerHTML = `<p>Enter a valid length for the straight line.</p>`;
+                drawPvcVisual(selectedShape, 0, 0, [], [], spacing, [], '', '', false);
+                return;
+            }
+            sections = splitSideIntoSections(totalLength, spacing, false, pipeLength, insertLengthVal, drillOffsetVal, straightLineStartOffsetVal, false);
 
             totalHoles = sections.reduce((sum, s) => sum + s.numberOfHoles, 0);
             totalLengthUsed = sections.reduce((sum, s) => sum + s.sectionLength, 0);
             pvcCount = Math.ceil(totalLengthUsed / pipeLength);
-            elbowCount = 0; // No elbows for a straight line
-            couplingCount = Math.max(0, sections.length - 1); // N sections need N-1 couplings
+            elbowCount = 0;
+            couplingCount = Math.max(0, sections.length - 1);
+            drawPvcVisual(selectedShape, totalLength, 0, [], [], spacing, sections, startPoint, '', showWiring);
         }
 
-        // --- Generate Report ---
-        let report = `--- PVC Project Report (${selectedShape.charAt(0).toUpperCase() + selectedShape.slice(1)}) ---\n\n`;
+        // --- Generate HTML Report ---
+        let htmlReport = '';
+        plainTextReport = '--- PVC Project Report ---\n\n';
 
-        report += `--- Input Details ---\n`;
-        report += `  Shape Selected: ${selectedShape === 'rectangle' ? 'rectangle' : 'straight line'}\n`;
-        report += `  Width Input: ${widthInput.value}\n`;
-        if (selectedShape === 'rectangle') {
-            report += `  Height Input: ${heightInput.value}\n`;
-        }
-        report += `  Hole Spacing: ${spacing.toFixed(1)}"\n`;
-        report += `  Standard Pipe Section Length: ${pipeLength.toFixed(1)}"\n`;
-        report += `  Include Corner Holes: ${includeCornerHoles ? 'Yes' : 'No'}\n`;
-        report += `  Insert Length: ${insertLengthVal.toFixed(2)}"\n`;
-        report += `  Drill Offset: ${drillOffsetVal.toFixed(2)}"\n`;
-        if (selectedShape === 'straight') {
-            report += `  Straight Line Start Offset: ${straightLineStartOffsetVal.toFixed(2)}"\n`;
-        }
-        report += `  Sales Tax Rate: ${salesTaxRateVal * 100.0}% (entered as ${salesTaxRateInput.value}%)\n\n`;
+        htmlReport += `<div class="report-section"><h3>Summary</h3><table>`;
+        htmlReport += `<tr><td>Total PVC Pipes:</td><td>${pvcCount}</td></tr>`;
+        htmlReport += `<tr><td>Total PVC Length:</td><td>${totalLengthUsed.toFixed(2)}"</td></tr>`;
+        htmlReport += `<tr><td>Total Holes:</td><td>${totalHoles}</td></tr>`;
+        htmlReport += `<tr><td>Elbows:</td><td>${elbowCount}</td></tr>`;
+        htmlReport += `<tr><td>Couplings:</td><td>${couplingCount}</td></tr>`;
+        htmlReport += `</table></div>`;
+        plainTextReport += `--- SUMMARY ---\n  Total PVC Pipes: ${pvcCount}\n  Total PVC Length: ${totalLengthUsed.toFixed(2)}"\n  Total Holes: ${totalHoles}\n  Elbows: ${elbowCount}, Couplings: ${couplingCount}\n\n`;
 
-        report += `--- PVC Section Breakdown (Cut List) ---\n`;
-        if (selectedShape === 'rectangle') {
-            if (widthSections.length > 0) {
-                report += `  Top/Bottom Sides (Width ${widthInput.value}):\n`;
-                widthSections.forEach((section, index) => {
-                    report += `    Section ${index + 1}: ${section.sectionLength.toFixed(2)}" with ${section.numberOfHoles} holes\n`;
-                });
-            } else {
-                report += `  Top/Bottom Sides (Width ${widthInput.value}): No sections calculated.\n`;
-            }
-
-            if (heightSections.length > 0) {
-                report += `  Left/Right Sides (Height ${heightInput.value}):\n`;
-                heightSections.forEach((section, index) => {
-                    report += `    Section ${index + 1}: ${section.sectionLength.toFixed(2)}" with ${section.numberOfHoles} holes\n`;
-                });
-            } else {
-                report += `  Left/Right Sides (Height ${heightInput.value}): No sections calculated.\n`;
-            }
-        } else { // Straight Line
-            if (sections.length > 0) { // Now 'sections' is in scope
-                report += `  Total Length ${widthInput.value}:\n`;
-                sections.forEach((section, index) => {
-                    report += `    Section ${index + 1}: ${section.sectionLength.toFixed(2)}" with ${section.numberOfHoles} holes\n`;
-                });
-            } else {
-                report += `  Total Length ${widthInput.value}: No sections calculated.\n`;
-            }
-        }
-        report += `\n`;
-
-
-        report += `--- Project Summary ---\n`;
-        report += `  Total PVC Pipe Length Used: ${totalLengthUsed.toFixed(2)}"\n`;
-        report += `  Total PVC Pipes Required (rounded up): ${pvcCount}\n`;
-        report += `  Total Holes to Drill: ${totalHoles}\n`;
-        report += `  Total Elbows Needed: ${elbowCount}\n`;
-        report += `  Total Couplings Needed: ${couplingCount}\n\n`;
-
-        report += `--- Cost Analysis ---\n`;
-        report += `  Base Price per PVC Pipe: $${basePriceVal.toFixed(2)}\n`;
-        report += `  Bulk Price per PVC Pipe (for ${bulkThresholdVal}+ pipes): $${bulkPriceVal.toFixed(2)}\n`;
-        report += `  Cost per Coupling: $${couplingCostVal.toFixed(2)}\n`;
-        report += `  Cost per Elbow: $${elbowCostVal.toFixed(2)}\n\n`;
-
-        let totalPipesCost;
-        if (pvcCount >= bulkThresholdVal) {
-            totalPipesCost = pvcCount * bulkPriceVal;
-        } else {
-            totalPipesCost = pvcCount * basePriceVal;
-        }
+        const totalPipesCost = pvcCount >= bulkThresholdVal ? pvcCount * bulkPriceVal : pvcCount * basePriceVal;
         const totalCouplingsCost = couplingCount * couplingCostVal;
         const totalElbowsCost = elbowCount * elbowCostVal;
-
         const subtotal = totalPipesCost + totalCouplingsCost + totalElbowsCost;
         const salesTaxAmount = subtotal * salesTaxRateVal;
         const totalProjectCost = subtotal + salesTaxAmount;
-
-        report += `  Subtotal (before tax): $${subtotal.toFixed(2)}\n`;
-        report += `  Sales Tax Amount: $${salesTaxAmount.toFixed(2)}\n`;
-        report += `  Total Project Cost (with tax): $${totalProjectCost.toFixed(2)}\n`;
-
-        resultsOutput.value = report;
+        htmlReport += `<div class="report-section">`;
+        htmlReport += `<div class="collapsible-toggle"><h3>Cost Breakdown</h3><span class="toggle-icon">+</span></div>`;
+        htmlReport += `<div class="collapsible-content"><table>`;
+        htmlReport += `<tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>`;
+        if (pvcCount > 0) htmlReport += `<tr><td>PVC Pipes</td><td>${pvcCount}</td><td>$${(totalPipesCost/pvcCount).toFixed(2)}</td><td>$${totalPipesCost.toFixed(2)}</td></tr>`;
+        if (couplingCount > 0) htmlReport += `<tr><td>Couplings</td><td>${couplingCount}</td><td>$${couplingCostVal.toFixed(2)}</td><td>$${totalCouplingsCost.toFixed(2)}</td></tr>`;
+        if (elbowCount > 0) htmlReport += `<tr><td>Elbows</td><td>${elbowCount}</td><td>$${elbowCostVal.toFixed(2)}</td><td>$${totalElbowsCost.toFixed(2)}</td></tr>`;
+        htmlReport += `<tr class="total-row"><td>Subtotal</td><td colspan="2"></td><td>$${subtotal.toFixed(2)}</td></tr>`;
+        htmlReport += `<tr><td>Sales Tax</td><td colspan="2"></td><td>$${salesTaxAmount.toFixed(2)}</td></tr>`;
+        htmlReport += `<tr class="total-row"><td>TOTAL COST</td><td colspan="2"></td><td>$${totalProjectCost.toFixed(2)}</td></tr>`;
+        htmlReport += `</table></div></div>`;
+        plainTextReport += `--- COST ---\n  Subtotal: $${subtotal.toFixed(2)}\n  Sales Tax: $${salesTaxAmount.toFixed(2)}\n  TOTAL COST: $${totalProjectCost.toFixed(2)}\n\n`;
         
-        // Redraw canvas with new dimensions
-        // Pass 'sections' for straight line as well
-        drawPvcVisual(selectedShape, width, height, widthSections, heightSections, spacing, sections); 
+        htmlReport += `<div class="report-section">`;
+        htmlReport += `<div class="collapsible-toggle"><h3>Cut List</h3><span class="toggle-icon">+</span></div>`;
+        htmlReport += `<div class="collapsible-content">`;
+        htmlReport += `<p class="note">To be drilled with ${holeSize} holes.</p>`;
+        plainTextReport += `--- CUT LIST (using ${holeSize} holes) ---\n`;
+        if (selectedShape === 'rectangle') {
+            htmlReport += `<table><tr><th>Side</th><th>Section</th><th>Length</th><th>Holes</th><th>Notes</th></tr>`;
+            plainTextReport += `  Top/Bottom Sides (${widthInput.value}):\n`;
+            widthSections.forEach((s, i) => {
+                htmlReport += `<tr><td>Top/Bottom</td><td>${i + 1}</td><td>${s.sectionLength.toFixed(2)}"</td><td>${s.numberOfHoles}</td><td>${s.isCornerSection ? 'Corner Piece' : ''}</td></tr>`;
+            });
+            plainTextReport += `  Left/Right Sides (${heightInput.value}):\n`;
+            heightSections.forEach((s, i) => {
+                htmlReport += `<tr><td>Left/Right</td><td>${i + 1}</td><td>${s.sectionLength.toFixed(2)}"</td><td>${s.numberOfHoles}</td><td>${s.isCornerSection ? 'Corner Piece' : ''}</td></tr>`;
+            });
+            htmlReport += `</table>`;
+        } else {
+            const title = selectedShape === 'arch' ? `Arch (${widthInput.value} diameter)` : `Straight Line (${widthInput.value})`;
+            htmlReport += `<table><tr><th>Section</th><th>Length</th><th>Holes</th></tr>`;
+             plainTextReport += `  ${title}:\n`;
+            sections.forEach((s, i) => {
+                htmlReport += `<tr><td>${i + 1}</td><td>${s.sectionLength.toFixed(2)}"</td><td>${s.numberOfHoles}</td></tr>`;
+            });
+            htmlReport += `</table>`;
+        }
+        htmlReport += `</div></div>`;
+        
+        resultsOutput.innerHTML = htmlReport;
+        setupCollapsibles();
 
     } catch (error) {
-        resultsOutput.value = `An error occurred: ${error.message}`;
+        resultsOutput.innerHTML = `<p>An error occurred: ${error.message}</p>`;
         console.error("Calculation error:", error);
     }
 }
 
 
 // --- Visual Representation (Canvas Drawing) ---
-// Added 'straightLineSections' as a parameter to drawPvcVisual
-function drawPvcVisual(shape, width, height, widthSections, heightSections, spacing, straightLineSections = []) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear previous drawing
+function drawPvcVisual(shape, width, height, widthSections, heightSections, spacing, straightLineSections, startPoint, wiringDirection, showWiring) {
+    const isDarkMode = document.body.getAttribute('data-theme') === 'dark';
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // The temporary red rectangle test has been removed from here.
+    const pipeColor = isDarkMode ? '#b0b0b0' : '#6c757d';
+    const textColor = isDarkMode ? '#e1e1e1' : '#343a40';
+    const dimColor = isDarkMode ? '#888' : '#888';
+    const accentColor = isDarkMode ? '#0095ff' : '#007bff';
+    const pipeWidth = 12;
+    const lineHeight = 14;
+    const arrowSize = 8;
 
-    if (shape === 'straight') {
-        // For straight line, 'width' in this context is the total length
-        if (width <= 0) return;
-        const scale = canvas.width / (width + 20); // Add some padding
-        drawStraightLine(width * scale, spacing, straightLineSections, scale); // Use straightLineSections
-    } else if (shape === 'rectangle') {
-        if (width <= 0 || height <= 0) return;
-
-        // Determine a scaling factor to fit the rectangle within the canvas
-        const padding = 20;
-        const maxWidth = canvas.width - padding * 2;
-        const maxHeight = canvas.height - padding * 2;
-        const scale = Math.min(maxWidth / width, maxHeight / height);
-
-        // Calculate scaled dimensions
-        const scaledWidth = width * scale;
-        const scaledHeight = height * scale;
-
-        // Center the rectangle on the canvas
-        const startX = (canvas.width - scaledWidth) / 2;
-        const startY = (canvas.height - scaledHeight) / 2;
-
-        drawRectangle(startX, startY, scaledWidth, scaledHeight, widthSections, heightSections, spacing, scale);
-    }
-}
-
-function drawStraightLine(scaledLength, spacing, sections, scale) {
-    ctx.strokeStyle = 'gray';
-    ctx.lineWidth = 10; // Increased line width for visibility
-    const startX = 10;
-    const y = canvas.height / 2; // Centered vertically
-
-    ctx.beginPath();
-    ctx.moveTo(startX, y);
-    ctx.lineTo(startX + scaledLength, y);
-    ctx.stroke(); // Draw the main line
-
-    ctx.fillStyle = 'black';
-    const holeRadius = 5; // Increased hole radius for visibility
-
-    if (!sections || !Array.isArray(sections)) {
-        console.warn("drawStraightLine: sections is not a valid array.", sections);
-        return; 
-    }
-
-    let currentDrawingX = startX;
-    sections.forEach(section => {
-        const sectionStartOffset = (section.isCornerSection ? (DEFAULT_DRILL_OFFSET + DEFAULT_INSERT_LENGTH) : DEFAULT_STRAIGHT_LINE_START_OFFSET) * scale;
+    ctx.font = '12px sans-serif';
+    
+    // Helper to draw arrows
+    const drawArrow = (x1, y1, x2, y2) => {
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        ctx.save();
+        ctx.strokeStyle = accentColor;
+        ctx.fillStyle = accentColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - arrowSize * Math.cos(angle - Math.PI / 6), y2 - arrowSize * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(x2 - arrowSize * Math.cos(angle + Math.PI / 6), y2 - arrowSize * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    };
+    
+    if (shape === 'straight' && width > 0) {
+        const padding = 40;
+        const scale = (canvas.width - padding * 2) / width;
+        const y = canvas.height / 2;
+        let currentX = padding;
         
-        let holeX = currentDrawingX + sectionStartOffset;
-        for (let i = 0; i < section.numberOfHoles; i++) {
+        ctx.lineWidth = pipeWidth;
+        ctx.strokeStyle = pipeColor;
+        ctx.fillStyle = textColor;
+
+        straightLineSections.forEach((section, index) => {
+            const sectionLengthScaled = section.sectionLength * scale;
             ctx.beginPath();
-            ctx.arc(holeX, y, holeRadius, 0, Math.PI * 2);
-            ctx.fill(); // Draw the hole
-            holeX += spacing * scale;
-        }
-        currentDrawingX += section.sectionLength * scale;
-    });
-}
+            ctx.moveTo(currentX, y);
+            ctx.lineTo(currentX + sectionLengthScaled, y);
+            ctx.stroke();
 
+            if(index < straightLineSections.length - 1){
+                 ctx.fillStyle = pipeColor;
+                 ctx.fillRect(currentX + sectionLengthScaled - pipeWidth/2, y - pipeWidth, pipeWidth, pipeWidth * 2);
+            }
 
-function drawRectangle(startX, startY, scaledWidth, scaledHeight, widthSections, heightSections, spacing, scale) {
-    ctx.strokeStyle = 'gray';
-    ctx.lineWidth = 10; // Increased line width for visibility
-
-    // Draw the rectangle outline
-    ctx.strokeRect(startX, startY, scaledWidth, scaledHeight);
-
-    ctx.fillStyle = 'black';
-    const holeRadius = 5; // Increased hole radius for visibility
-    const drillOffsetScaled = (DEFAULT_DRILL_OFFSET + DEFAULT_INSERT_LENGTH) * scale; // Combined offset for drilling
-
-    // Draw holes on Top and Bottom sides (width sections)
-    let currentDrawingX_width = startX;
-    widthSections.forEach((section, secIndex) => {
-        const yPosTop = startY;
-        const yPosBottom = startY + scaledHeight;
-
-        let holeX_top = currentDrawingX_width + drillOffsetScaled;
-        let holeX_bottom = currentDrawingX_width + drillOffsetScaled;
-
-        for (let i = 0; i < section.numberOfHoles; i++) {
-            ctx.beginPath();
-            ctx.arc(holeX_top, yPosTop, holeRadius, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.arc(holeX_bottom, yPosBottom, holeRadius, 0, Math.PI * 2);
-            ctx.fill();
-
-            holeX_top += spacing * scale;
-            holeX_bottom += spacing * scale;
-        }
-        currentDrawingX_width += section.sectionLength * scale;
-    });
-
-    // Draw holes on Left and Right sides (height sections)
-    let currentDrawingY_height = startY;
-    heightSections.forEach((section, secIndex) => {
-        const xPosLeft = startX;
-        const xPosRight = startX + scaledWidth;
-
-        let holeY_left = currentDrawingY_height + drillOffsetScaled;
-        let holeY_right = currentDrawingY_height + drillOffsetScaled;
-        
-        for (let i = 0; i < section.numberOfHoles; i++) {
-            ctx.beginPath();
-            ctx.arc(xPosLeft, holeY_left, holeRadius, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.arc(xPosRight, holeY_right, holeRadius, 0, Math.PI * 2);
-            ctx.fill();
-
-            holeY_left += spacing * scale;
-            holeY_right += spacing * scale;
-        }
-        currentDrawingY_height += section.sectionLength * scale;
-    });
-
-
-    // Draw "corner holes" more explicitly if enabled, to represent the shared nature
-    if (includeCornerHolesCheckbox.checked) {
-        ctx.fillStyle = 'blue'; // Use a different color for corner holes for clarity
-        const corners = [
-            { x: startX, y: startY }, // Top-Left
-            { x: startX + scaledWidth, y: startY }, // Top-Right
-            { x: startX, y: startY + scaledHeight }, // Bottom-Left
-            { x: startX + scaledWidth, y: startY + scaledHeight } // Bottom-Right
-        ];
-        corners.forEach(corner => {
-            ctx.beginPath();
-            ctx.arc(corner.x, corner.y, holeRadius + 1, 0, Math.PI * 2); // Slightly larger
-            ctx.fill();
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'center';
+            const label1 = `${section.sectionLength.toFixed(2)}"`;
+            const label2 = `(${section.numberOfHoles} holes)`;
+            ctx.fillText(label1, currentX + sectionLengthScaled / 2, y - 30);
+            ctx.fillText(label2, currentX + sectionLengthScaled / 2, y - 30 + lineHeight);
+            currentX += sectionLengthScaled;
         });
+
+        if(showWiring){
+            const flowY = y + pipeWidth + 15;
+            if(startPoint === 'left'){
+                drawArrow(padding, flowY, canvas.width - padding, flowY);
+            } else { // right
+                drawArrow(canvas.width - padding, flowY, padding, flowY);
+            }
+        }
+
+    } else if (shape === 'arch' && width > 0) {
+        const diameter = width;
+        const padding = 40;
+        const totalLength = straightLineSections.reduce((sum, s) => sum + s.sectionLength, 0);
+        const scale = (canvas.width - padding * 2) / diameter;
+        const radius = (diameter / 2) * scale;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height - padding;
+
+        ctx.lineWidth = pipeWidth;
+        ctx.strokeStyle = pipeColor;
+        
+        let currentAngle = Math.PI;
+
+        straightLineSections.forEach((section, index) => {
+            const angleOfSection = (section.sectionLength / totalLength) * Math.PI;
+            const endAngle = currentAngle + angleOfSection;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, currentAngle, endAngle);
+            ctx.stroke();
+
+            if (index < straightLineSections.length - 1) {
+                const coupletX = centerX + radius * Math.cos(endAngle);
+                const coupletY = centerY + radius * Math.sin(endAngle);
+                ctx.fillStyle = pipeColor;
+                ctx.save();
+                ctx.translate(coupletX, coupletY);
+                ctx.rotate(endAngle + Math.PI / 2);
+                ctx.fillRect(-pipeWidth/2, -pipeWidth, pipeWidth, pipeWidth * 2);
+                ctx.restore();
+            }
+
+            const midAngle = currentAngle + angleOfSection / 2;
+            const textRadius = radius + 30;
+            const textX = centerX + textRadius * Math.cos(midAngle);
+            const textY = centerY + textRadius * Math.sin(midAngle);
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${section.sectionLength.toFixed(2)}"`, textX, textY - lineHeight / 2);
+            ctx.fillText(`(${section.numberOfHoles} holes)`, textX, textY + lineHeight / 2);
+            currentAngle = endAngle;
+        });
+
+        if(showWiring){
+            const flowRadius = radius + pipeWidth + 10;
+            const startAngle = (startPoint === 'left') ? Math.PI : 0;
+            const endAngle = (startPoint === 'left') ? 0 : Math.PI;
+
+            ctx.save();
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, flowRadius, startAngle, endAngle, (startPoint === 'right'));
+            ctx.stroke();
+            
+            const arrowAngle = endAngle;
+            const headX = centerX + flowRadius * Math.cos(arrowAngle);
+            const headY = centerY + flowRadius * Math.sin(arrowAngle);
+            const tangent = arrowAngle + Math.PI / 2 * ((startPoint === 'left') ? 1 : -1);
+            
+            ctx.beginPath();
+            ctx.moveTo(headX, headY);
+            ctx.lineTo(headX - arrowSize * Math.cos(tangent - Math.PI / 6), headY - arrowSize * Math.sin(tangent - Math.PI / 6));
+            ctx.lineTo(headX - arrowSize * Math.cos(tangent + Math.PI / 6), headY - arrowSize * Math.sin(tangent + Math.PI / 6));
+            ctx.closePath();
+            ctx.fillStyle = accentColor;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = dimColor;
+        ctx.fillStyle = dimColor;
+        ctx.textAlign = 'center';
+        ctx.beginPath();
+        ctx.moveTo(centerX - radius, centerY + 20);
+        ctx.lineTo(centerX + radius, centerY + 20);
+        ctx.stroke();
+        ctx.fillText(`Diameter: ${diameter.toFixed(2)}"`, centerX, centerY + 35);
+
+
+    } else if (shape === 'rectangle' && width > 0 && height > 0) {
+        const padding = 100;
+        const scale = Math.min((canvas.width - padding * 2) / width, (canvas.height - padding * 2) / height);
+        const sWidth = width * scale;
+        const sHeight = height * scale;
+        const startX = (canvas.width - sWidth) / 2;
+        const startY = (canvas.height - sHeight) / 2;
+        const endX = startX + sWidth;
+        const endY = startY + sHeight;
+        const elbowRadius = pipeWidth;
+
+        const drawElbow = (cx, cy, startAngle, endAngle) => {
+            ctx.strokeStyle = pipeColor;
+            ctx.lineWidth = pipeWidth;
+            ctx.beginPath();
+            ctx.arc(cx, cy, elbowRadius, startAngle, endAngle);
+            ctx.stroke();
+        };
+
+        // Draw Elbows first
+        drawElbow(startX, startY, Math.PI, 1.5 * Math.PI);
+        drawElbow(endX, startY, 1.5 * Math.PI, 2 * Math.PI);
+        drawElbow(endX, endY, 0, 0.5 * Math.PI);
+        drawElbow(startX, endY, 0.5 * Math.PI, Math.PI);
+        
+        ctx.fillStyle = textColor;
+        
+        // --- Top Side (L-to-R) ---
+        let currentX_T = startX;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        widthSections.forEach(section => {
+            const scaledLen = section.sectionLength * scale;
+            const holeText = section.isCornerSection ? `(${section.numberOfHoles}h, 1 corner)` : `(${section.numberOfHoles} holes)`;
+            ctx.beginPath();
+            ctx.moveTo(currentX_T + elbowRadius, startY);
+            ctx.lineTo(currentX_T + scaledLen - elbowRadius, startY);
+            ctx.strokeStyle = pipeColor;
+            ctx.lineWidth = pipeWidth;
+            ctx.stroke();
+            ctx.fillText(`${section.sectionLength.toFixed(2)}"`, currentX_T + scaledLen/2, startY - 20 - lineHeight);
+            ctx.fillText(holeText, currentX_T + scaledLen/2, startY - 20);
+            currentX_T += scaledLen;
+        });
+
+        // --- Right Side (Top-to-Bottom) ---
+        let currentY_R = startY;
+        heightSections.forEach(section => {
+            const scaledLen = section.sectionLength * scale;
+            const holeText = section.isCornerSection ? `(${section.numberOfHoles}h, 1 corner)` : `(${section.numberOfHoles} holes)`;
+            const midPointY = currentY_R + scaledLen / 2;
+            ctx.beginPath();
+            ctx.moveTo(endX, currentY_R + elbowRadius);
+            ctx.lineTo(endX, currentY_R + scaledLen - elbowRadius);
+            ctx.strokeStyle = pipeColor;
+            ctx.lineWidth = pipeWidth;
+            ctx.stroke();
+            ctx.textAlign = 'left';
+            const textX_right = endX + 35;
+            ctx.fillText(`${section.sectionLength.toFixed(2)}"`, textX_right, midPointY - (lineHeight/2));
+            ctx.fillText(holeText, textX_right, midPointY + (lineHeight/2));
+            ctx.beginPath();
+            ctx.moveTo(textX_right - 5, midPointY);
+            ctx.lineTo(endX + 5, midPointY);
+            ctx.strokeStyle = dimColor;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            currentY_R += scaledLen;
+        });
+
+        // --- Bottom Side (R-to-L) ---
+        let currentX_B = endX;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        [...widthSections].reverse().forEach(section => {
+            const scaledLen = section.sectionLength * scale;
+            const holeText = section.isCornerSection ? `(${section.numberOfHoles}h, 1 corner)` : `(${section.numberOfHoles} holes)`;
+            ctx.beginPath();
+            ctx.moveTo(currentX_B - elbowRadius, endY);
+            ctx.lineTo(currentX_B - scaledLen + elbowRadius, endY);
+            ctx.strokeStyle = pipeColor;
+            ctx.lineWidth = pipeWidth;
+            ctx.stroke();
+            ctx.fillText(`${section.sectionLength.toFixed(2)}"`, currentX_B - scaledLen/2, endY + 20);
+            ctx.fillText(holeText, currentX_B - scaledLen/2, endY + 20 + lineHeight);
+            currentX_B -= scaledLen;
+        });
+
+        // --- Left Side (Bottom-to-Top) ---
+        let currentY_L = endY;
+        [...heightSections].reverse().forEach(section => {
+            const scaledLen = section.sectionLength * scale;
+            const holeText = section.isCornerSection ? `(${section.numberOfHoles}h, 1 corner)` : `(${section.numberOfHoles} holes)`;
+            const midPointY = currentY_L - scaledLen / 2;
+            ctx.beginPath();
+            ctx.moveTo(startX, currentY_L - elbowRadius);
+            ctx.lineTo(startX, currentY_L - scaledLen + elbowRadius);
+            ctx.strokeStyle = pipeColor;
+            ctx.lineWidth = pipeWidth;
+            ctx.stroke();
+            ctx.textAlign = 'right';
+            const textX_left = startX - 35;
+            ctx.fillText(`${section.sectionLength.toFixed(2)}"`, textX_left, midPointY - (lineHeight/2));
+            ctx.fillText(holeText, textX_left, midPointY + (lineHeight/2));
+            ctx.beginPath();
+            ctx.moveTo(textX_left + 5, midPointY);
+            ctx.lineTo(startX - 5, midPointY);
+            ctx.strokeStyle = dimColor;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            currentY_L -= scaledLen;
+        });
+
+
+        if (showWiring) {
+            const flowOffset = pipeWidth + 15;
+            const flowCorners = {
+                'top-left':     { x: startX + flowOffset, y: startY + flowOffset },
+                'top-right':    { x: endX - flowOffset,   y: startY + flowOffset },
+                'bottom-left':  { x: startX + flowOffset, y: endY - flowOffset },
+                'bottom-right': { x: endX - flowOffset,   y: endY - flowOffset }
+            };
+            const startPos = flowCorners[startPoint];
+            
+            ctx.save();
+            ctx.fillStyle = accentColor;
+            ctx.beginPath();
+            ctx.arc(startPos.x, startPos.y, 8, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = isDarkMode ? '#1a1a1a' : '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.fillText("S", startPos.x, startPos.y);
+            ctx.restore();
+
+            const cornerSequence = ['bottom-left', 'bottom-right', 'top-right', 'top-left'];
+            let currentIndex = cornerSequence.indexOf(startPoint);
+
+            for (let i = 0; i < 4; i++) {
+                let fromCornerName = cornerSequence[currentIndex];
+                let toCornerName;
+                if (wiringDirection === 'clockwise') {
+                    toCornerName = cornerSequence[(currentIndex + 1) % 4];
+                } else { // counter-clockwise
+                    toCornerName = cornerSequence[(currentIndex - 1 + 4) % 4];
+                }
+                drawArrow(flowCorners[fromCornerName].x, flowCorners[fromCornerName].y, flowCorners[toCornerName].x, flowCorners[toCornerName].y);
+                currentIndex = cornerSequence.indexOf(toCornerName);
+            }
+        }
     }
 }
 
 
 // --- Export Functions ---
 function saveReportSummary() {
-    const reportContent = resultsOutput.value;
-    if (!reportContent) {
-        alert("No report to save!");
-        return;
-    }
-    const blob = new Blob([reportContent], { type: 'text/plain' });
+    if (!plainTextReport) { alert("No report to save!"); return; }
+    const blob = new Blob([plainTextReport], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'PVC_Project_Report.txt';
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
 }
 
 function exportLabels() {
-    if (allLabelsData.length === 0) {
-        alert("No labels to export! Perform a calculation first.");
-        return;
-    }
-
-    let csvContent = "Side,Section,Length (in),Holes,Is Corner Section\n";
-    allLabelsData.forEach(label => {
-        csvContent += `${label.side},${label.section},${label.length.toFixed(2)},${label.holes},${label.isCorner ? 'Yes' : 'No'}\n`;
+    if (allLabelsData.length === 0) { alert("No labels to export!"); return; }
+    let csvContent = "Side,Section,Length (in),Holes,Is Corner\n";
+    allLabelsData.forEach(l => {
+        csvContent += `${l.side},${l.section},${l.length.toFixed(2)},${l.holes},${l.isCorner ? 'Yes' : 'No'}\n`;
     });
-
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'PVC_Pipe_Labels.csv';
-    document.body.appendChild(a);
+a.download = 'PVC_Pipe_Labels.csv';
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
 }
 
 function exportVisualCanvas() {
-    if (canvas.width === 0 || canvas.height === 0 || ctx.getImageData(0, 0, canvas.width, canvas.height).data.every(v => v === 0)) {
-        alert("No visual to export! Perform a calculation first.");
-        return;
-    }
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
     a.download = 'PVC_Project_Visual.png';
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
 }
 
 
-// --- Event Listeners and Initial Setup ---
+// --- Event Listeners ---
 calculateBtn.addEventListener('click', performCalculation);
-shapeSelect.addEventListener('change', updateHeightInputState); // Listen to 'change' event on select
-
-// Add listeners for new export and reset buttons
+shapeSelect.addEventListener('change', updateHeightInputState);
 saveReportBtn.addEventListener('click', saveReportSummary);
 exportLabelsBtn.addEventListener('click', exportLabels);
 exportVisualBtn.addEventListener('click', exportVisualCanvas);
-resetBtn.addEventListener('click', resetAllInputs); // New reset button listener
+resetBtn.addEventListener('click', resetAllInputs);
+themeToggle.addEventListener('change', toggleTheme);
 
-// Add event listeners for all input fields to trigger calculation on change
 [
     widthInput, heightInput, spacingInput, pipeLengthInput, includeCornerHolesCheckbox,
-    insertLengthInput, drillOffsetInput, straightLineStartOffsetInput, maxHolesPerSectionInput,
-    basePriceInput, bulkPriceInput, bulkThresholdInput, couplingCostInput, elbowCostInput, salesTaxRateInput
+    insertLengthInput, drillOffsetInput, straightLineStartOffsetInput,
+    basePriceInput, bulkPriceInput, bulkThresholdInput, couplingCostInput, elbowCostInput, salesTaxRateInput,
+    holeSizeInput, wiringStartPointInput, wiringDirectionInput, showWiringCheckbox
 ].forEach(input => {
-    input.addEventListener('input', performCalculation); // 'input' for text, 'change' for checkbox/radio
+    input.addEventListener('input', performCalculation);
 });
 
-// Helper to update height input visibility based on shape selection
-function updateHeightInputState() {
-    const isRectangle = shapeSelect.value === 'rectangle';
-    // Ensure elements exist before trying to access their style property
-    if (heightInputGroup) {
-        if (isRectangle) {
-            heightInputGroup.style.display = 'block';
-            if (heightLabel) heightLabel.style.display = 'block';
-            if (heightNote) heightNote.style.display = 'block';
-        } else {
-            heightInputGroup.style.display = 'none';
-            if (heightLabel) heightLabel.style.display = 'none';
-            if (heightNote) heightNote.style.display = 'none';
-            heightInput.value = ''; // Clear height when switching to straight line
-        }
+function updateWiringOptions(shape) {
+    wiringStartPointInput.innerHTML = ''; // Clear existing options
+    let options = {};
+
+    if (shape === 'rectangle') {
+        options = {
+            'bottom-left': 'Bottom-Left', 'bottom-right': 'Bottom-Right',
+            'top-left': 'Top-Left', 'top-right': 'Top-Right'
+        };
+        wiringDirectionGroup.style.display = 'block';
+    } else { // For straight and arch
+        options = { 'left': 'Left', 'right': 'Right' };
+        wiringDirectionGroup.style.display = 'none';
     }
-    performCalculation(); // Re-calculate when shape changes
+
+    for (const [value, text] of Object.entries(options)) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = text;
+        wiringStartPointInput.appendChild(option);
+    }
 }
 
-// Ensure initial state and calculation on page load
-document.addEventListener('DOMContentLoaded', () => {
-    updateHeightInputState(); // Set initial height input visibility
-    performCalculation();     // Run initial calculation
-});
+
+function updateHeightInputState() {
+    const selectedShape = shapeSelect.value;
+    const isRectangle = selectedShape === 'rectangle';
+    const widthLabel = document.querySelector('label[for="width"]');
+
+    heightInputGroup.style.display = isRectangle ? 'block' : 'none';
+    const cornerHolesLabel = document.querySelector('label[for="includeCornerHoles"]');
+    if (cornerHolesLabel) {
+        cornerHolesLabel.style.display = isRectangle ? 'block' : 'none';
+    }
+    includeCornerHolesCheckbox.style.display = isRectangle ? 'block' : 'none';
+    
+    if (selectedShape === 'arch') {
+        widthLabel.textContent = 'Diameter (e.g., 10\', 5" or 6\' 2")';
+    } else {
+        widthLabel.textContent = 'Width (e.g., 30\', 5" or 3\' 6")';
+    }
+    
+    updateWiringOptions(selectedShape);
+
+    if (!isRectangle) {
+        heightInput.value = '';
+    }
+    
+    performCalculation();
+}

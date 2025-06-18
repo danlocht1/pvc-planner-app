@@ -8,103 +8,138 @@
 </head>
 <body>
     <div class="container">
-        <h1>PVC Pipe & Hole Calculator</h1>
+        <header class="main-header">
+            <h1>PVC Pipe & Hole Calculator</h1>
+            <div class="theme-switcher">
+                <label for="themeToggle">Dark Mode</label>
+                <input type="checkbox" id="themeToggle">
+            </div>
+        </header>
 
         <div class="input-section">
-            <h2>Dimensions & Spacing</h2>
-
-            <div class="shape-selection">
-                <label for="shapeSelect">Shape:</label>
-                <select id="shapeSelect">
-                    <option value="straight">Straight Line</option>
-                    <option value="rectangle">Rectangle</option>
-                </select>
+            <div class="input-group">
+                <h2>Dimensions & Spacing</h2>
+                <div class="shape-selection">
+                    <label for="shapeSelect">Shape:</label>
+                    <select id="shapeSelect">
+                        <option value="straight">Straight Line</option>
+                        <option value="rectangle">Rectangle</option>
+                        <option value="arch">Arch / Semi-Circle</option>
+                    </select>
+                </div>
+                <label for="width">Width (e.g., 30', 5", 3' 6"):</label>
+                <input type="text" id="width" value="30'">
+                <div id="heightInputGroup">
+                    <label for="height">Height (e.g., 10', 2", 1' 3"):</label>
+                    <input type="text" id="height" value="">
+                </div>
+                <label for="spacing">Hole Spacing (inches):</label>
+                <input type="number" id="spacing" value="2.0" step="0.1" min="0.1">
+                <label for="holeSize">Hole Size / Diameter (e.g., 1/2", 12.7mm):</label>
+                <input type="text" id="holeSize" value="1/2&quot;">
+                <label for="pipeLength">Standard Pipe Section Length (inches):</label>
+                <input type="number" id="pipeLength" value="120.0" step="1" min="1">
+                <p class="note">Length of standard PVC pipe sections (e.g., 120" for 10ft).</p>
+                <label for="includeCornerHoles">Include Corner Holes (for Rectangles):</label>
+                <input type="checkbox" id="includeCornerHoles" checked>
             </div>
 
-            <label for="width">Width (e.g., 30', 5", 3' 6"):</label>
-            <input type="text" id="width" value="30'">
-            <p class="note">Enter '0' for a zero-length straight line.</p>
-
-            <div id="heightInputGroup">
-                <label for="height">Height (e.g., 10', 2", 1' 3"):</label>
-                <input type="text" id="height" value="">
-                <p class="note">Required for Rectangle shape.</p>
+            <div class="input-group">
+                <h2 class="collapsible-toggle">Advanced Options <span class="toggle-icon">+</span></h2>
+                <div class="collapsible-content">
+                    <div class="grid-container">
+                        <div>
+                            <label for="insertLength">Insert Length (in):</label>
+                            <input type="number" id="insertLength" value="1.5" step="0.01" min="0">
+                        </div>
+                        <div>
+                            <label for="drillOffset">Drill Offset (in):</label>
+                            <input type="number" id="drillOffset" value="0.25" step="0.01" min="0">
+                        </div>
+                        <div>
+                            <label for="straightLineStartOffset">Start Offset (in):</label>
+                            <input type="number" id="straightLineStartOffset" value="0.5" step="0.01" min="0">
+                        </div>
+                        <div>
+                            <label for="maxHolesPerSection">Max Holes/Section:</label>
+                            <input type="number" id="maxHolesPerSection" value="50" step="1" min="1">
+                        </div>
+                    </div>
+                    <hr>
+                    <div id="wiringOptionsGroup">
+                        <h3>Wiring Flow</h3>
+                        <div class="grid-container wiring-options">
+                             <div>
+                                <label for="wiringStartPoint">Wiring Start Point:</label>
+                                <select id="wiringStartPoint"></select>
+                            </div>
+                            <div id="wiringDirectionGroup">
+                                 <label for="wiringDirection">Wiring Direction:</label>
+                                <select id="wiringDirection">
+                                    <option value="clockwise">Clockwise</option>
+                                    <option value="counter-clockwise">Counter-Clockwise</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label for="showWiring">Show Wiring Flow:</label>
+                                <input type="checkbox" id="showWiring" checked>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <label for="spacing">Hole Spacing (inches):</label>
-            <input type="number" id="spacing" value="2.0" step="0.1" min="0.1">
-
-            <label for="pipeLength">Standard Pipe Section Length (inches):</label>
-            <input type="number" id="pipeLength" value="120.0" step="1" min="1">
-            <p class="note">Length of standard PVC pipe sections (e.g., 120" for 10ft).</p>
-
-            <label for="includeCornerHoles">Include Corner Holes (for Rectangles):</label>
-            <input type="checkbox" id="includeCornerHoles" checked>
-            <p class="note">If checked, corner points are considered drilled holes.</p>
-
-            <hr>
-
-            <h2>Advanced Options</h2>
-            <div class="advanced-options">
-                <label for="insertLength">Insert Length (inches):</label>
-                <input type="number" id="insertLength" value="1.5" step="0.01" min="0">
-                <p class="note">Length of pipe inserted into fittings.</p>
-
-                <label for="drillOffset">Drill Offset (inches):</label>
-                <input type="number" id="drillOffset" value="0.25" step="0.01" min="0">
-                <p class="note">Distance from pipe end to first hole center.</p>
-
-                <label for="straightLineStartOffset">Straight Line Start Offset (inches):</label>
-                <input type="number" id="straightLineStartOffset" value="0.5" step="0.01" min="0">
-                <p class="note">Distance from start of straight line to first hole center.</p>
-                
-                <label for="maxHolesPerSection">Max Holes Per Section:</label>
-                <input type="number" id="maxHolesPerSection" value="50" step="1" min="1">
-                <p class="note">Visual/labeling limit for holes per pipe section.</p>
+            <div class="input-group">
+                <h2 class="collapsible-toggle">Pricing & Tax <span class="toggle-icon">+</span></h2>
+                <div class="collapsible-content">
+                    <div class="grid-container">
+                         <div>
+                            <label for="basePrice">Base Price/Pipe ($):</label>
+                            <input type="number" id="basePrice" value="4.38" step="0.01" min="0">
+                        </div>
+                        <div>
+                            <label for="bulkPrice">Bulk Price/Pipe ($):</label>
+                            <input type="number" id="bulkPrice" value="3.50" step="0.01" min="0">
+                        </div>
+                        <div>
+                            <label for="bulkThreshold">Bulk Threshold (pipes):</label>
+                            <input type="number" id="bulkThreshold" value="8" step="1" min="1">
+                        </div>
+                        <div>
+                            <label for="couplingCost">Coupling Cost ($):</label>
+                            <input type="number" id="couplingCost" value="0.78" step="0.01" min="0">
+                        </div>
+                        <div>
+                             <label for="elbowCost">Elbow Cost ($):</label>
+                            <input type="number" id="elbowCost" value="0.58" step="0.01" min="0">
+                        </div>
+                        <div>
+                            <label for="salesTaxRate">Sales Tax Rate (%):</label>
+                            <input type="number" id="salesTaxRate" value="6.5" step="0.1" min="0">
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <hr>
-
-            <h2>Pricing & Tax</h2>
-            <div class="pricing-options">
-                <label for="basePrice">Base Price per PVC Pipe ($):</label>
-                <input type="number" id="basePrice" value="4.38" step="0.01" min="0">
-
-                <label for="bulkPrice">Bulk Price per PVC Pipe ($):</label>
-                <input type="number" id="bulkPrice" value="3.50" step="0.01" min="0">
-
-                <label for="bulkThreshold">Bulk Threshold (pipes):</label>
-                <input type="number" id="bulkThreshold" value="8" step="1" min="1">
-
-                <label for="couplingCost">Coupling Cost ($):</label>
-                <input type="number" id="couplingCost" value="0.78" step="0.01" min="0">
-
-                <label for="elbowCost">Elbow Cost ($):</label>
-                <input type="number" id="elbowCost" value="0.58" step="0.01" min="0">
-
-                <label for="salesTaxRate">Sales Tax Rate (%):</label>
-                <input type="number" id="salesTaxRate" value="6.5" step="0.1" min="0">
-                <p class="note">Enter as a percentage (e.g., 6.5 for 6.5%).</p>
+             <div class="button-group main-actions">
+                <button id="calculateBtn">Calculate</button>
+                <button id="resetBtn" class="secondary">Reset All</button>
             </div>
-        </div>
-
-        <div class="button-group">
-            <button id="calculateBtn">Calculate</button>
-            <button id="resetBtn">Reset All</button>
         </div>
 
         <div class="output-section">
             <h2>Results</h2>
-            <textarea id="resultsOutput" readonly></textarea>
+            <div id="resultsOutput"></div>
 
             <div class="button-group">
-                <button id="saveReportBtn">Save Report Summary</button>
+                <button id="saveReportBtn">Save Report</button>
                 <button id="exportLabelsBtn">Export Labels</button>
                 <button id="exportVisualBtn">Export Visual</button>
             </div>
 
             <h2>Visual Representation</h2>
             <canvas id="pvcCanvas" width="500" height="300"></canvas>
+             <p class="note canvas-note">Visual is a schematic and may not be to exact scale.</p>
         </div>
     </div>
 
